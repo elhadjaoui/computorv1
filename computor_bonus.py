@@ -13,13 +13,16 @@ def parse_polynomial(equation):
     
     for power, coeff in right_terms.items():
         left_terms[power] = left_terms.get(power, 0) - coeff
-    
+    for power, coeff in list(left_terms.items()):
+        if coeff == 0:
+            del left_terms[power]
     return left_terms
 
 def parse_terms(expression):
     terms = {}
     expression = expression.replace(' ', '')
-    matches = re.findall(r'([+-]?\d*\.?\d*)\*?X?\^?(\d*)', expression)
+    matches = re.findall(r'([+-]?\s*\d*\.?\d*)\s*\*?\s*X\s*\^?\s*(\d*)', expression)
+    constant_matches = re.findall(r'(?<![\*\^])([+-]?\b\d+\.?\d*\b)(?![\*\^])', expression)
     for match in matches:
         coeff = match[0]
         power = match[1]
@@ -32,7 +35,23 @@ def parse_terms(expression):
                 coeff = float(match[0].replace(' ', ''))
             else:
                 coeff = int(match[0].replace(' ', ''))
-        power = int(power) if power else 1 if 'X' in match[0] else 0
+        if power:
+            power = int(power)
+        else:
+            power = 1
+        terms[power] = terms.get(power, 0) + coeff
+    for match in constant_matches:
+        coeff = match.strip()
+        if coeff == '' or coeff == '+':
+            coeff = 1
+        elif coeff == '-':
+            coeff = -1
+        else:
+            if '.' in coeff:
+                coeff = float(coeff.replace(' ', ''))
+            else:
+                coeff = int(coeff.replace(' ', ''))
+        power = 0
         terms[power] = terms.get(power, 0) + coeff
     return terms
 
@@ -50,6 +69,7 @@ def solve_polynomial(terms):
         b = terms.get(1, 0)
         c = terms.get(0, 0)
         discriminant = b**2 - 4*a*c
+        print(f"Discriminant: b^2 - 4ac = {b}^2 - 4*{a}*{c} = {discriminant}")
         if discriminant > 0:
             sol1 = Fraction(-b + discriminant**0.5, 2*a)
             sol2 = Fraction(-b - discriminant**0.5, 2*a)
@@ -58,7 +78,12 @@ def solve_polynomial(terms):
             sol = Fraction(-b, 2*a)
             return f"Polynomial degree: 2\nDiscriminant is zero, the solution is:\n{sol}"
         else:
-            return f"Polynomial degree: 2\nDiscriminant is strictly negative, no real solutions."
+            sol1 = f"(-{b} + i√{-discriminant}) / {2*a}"
+            sol2 = f"(-{b} - i√{-discriminant}) / {2*a}"
+            return (
+                f"Polynomial degree: 2\n"
+                f"Discriminant is strictly negative, the two complex solutions are: \n" + sol1 + "\n" + sol2
+            )
     
     if degree == 1:
         b = terms.get(1, 0)
@@ -68,7 +93,8 @@ def solve_polynomial(terms):
         elif b == 0:
             return "Polynomial degree: 1\nNo solution."
         sol = Fraction(-c, b)
-        return f"Polynomial degree: 1\nThe solution is:\n{sol}"
+        print(f"Solution: -c / b = {-c} / {b} = {sol}")
+        return f"Polynomial degree: 1\nThe solution is:\n{sol} = {sol.numerator / sol.denominator}"
     
     return "Polynomial degree: 0\nNo solution."
 
@@ -80,7 +106,17 @@ def main():
     eq = sys.argv[1]
     try:
         terms = parse_polynomial(eq)
-        reduced_form = " + ".join([f"{coeff} * X^{power}" for power, coeff in sorted(terms.items())])
+        for index, (power, coeff) in enumerate(sorted(terms.items())):
+            if coeff >= 0:
+                sign = " + " if index > 0 else ""
+            else:
+                sign = " - "
+            if power == 0:
+                reduced_form = f"{sign}{abs(coeff)}"
+            elif power == 1:
+                reduced_form += f"{sign}{abs(coeff)} * X"
+            else:
+                reduced_form += f"{sign}{abs(coeff)} * X^{power}"
         print(f"Reduced form: {reduced_form} = 0")
         print(solve_polynomial(terms))
     except ValueError as e:
