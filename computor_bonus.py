@@ -106,6 +106,7 @@ def main():
     eq = sys.argv[1]
     try:
         terms = parse_polynomial(eq)
+        reduced_form = ""
         for index, (power, coeff) in enumerate(sorted(terms.items())):
             if coeff >= 0:
                 sign = " + " if index > 0 else ""
